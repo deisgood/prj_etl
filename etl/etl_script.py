@@ -43,7 +43,7 @@ request_headers = {
 }
 
 dtypes = {
-    "거래금액": "string",
+    "거래금액": "int64",
     "건축년도": "string",
     "년": "string",
     "도로명": "string",
@@ -117,7 +117,10 @@ def load_to_s3_bucket(df, output_filename):
     try:
         bucket = s3_bucket
         csv_buffer = StringIO()
-        df.to_csv(csv_buffer)
+        df.to_csv(csv_buffer,
+                  header=True,
+                  encoding="utf-8-sig",
+                  index=False)
         s3_resource = boto3.resource(
             "s3",
             aws_access_key_id=aws_access_key_id,
@@ -147,7 +150,6 @@ def run_etl():
                                      params=params)
 
     total_page = get_total_page_count(PublicData)
-    print(f"total_page: {total_page}")
 
     for i in range(1, total_page + 1):
         params = {
@@ -192,7 +194,7 @@ def run_etl():
 
             rows.append(
                 {
-                    "거래금액": 거래금액,
+                    "거래금액": 거래금액.replace(",", ""),
                     "건축년도": 건축년도,
                     "년": 년,
                     "도로명": 도로명,
@@ -219,9 +221,11 @@ def run_etl():
                 }
             )
 
+    print(f"rows: {len(rows)}")
     df = pd.DataFrame(data=rows, columns=dtypes.keys())
 
-    # print(tabulate(df, headers="keys", tablefmt="pretty", showindex=True))
+    # print(tabulate(df, headers="keys", tablefmt="pretty", showindex=False))
+
     convert_df_types(df)
 
     load_to_s3_bucket(df, output_filename="df_tmp.csv")
